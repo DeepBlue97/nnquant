@@ -26,37 +26,62 @@ class Net(nn.Module):
 
         self.x_abs_max = 2.8215
 
+        self.in_fc2_scale = 111.1656 / 127
+        self.in_fc3_scale = 127.0282 / 127
+
         # self.fc1_scale_wt = 0.1242 / 127
 
         # self.fc1_scale_b = self.scale_x * self.fc1_scale_wt
 
-        self.out_fc1_scale = 9.0297 / 127
+        # self.out_fc1_scale = 9.0297 / 127
+
+        self.out_fc1_scale = 416591.9688 / 127
+        self.out_fc2_scale = 78421.6094 / 127
+        self.out_fc3_scale = 51337.8516 / 127
 
     def quant(self):
         fc1_scale_wt = self.fc1.weight.abs().max() / 127
-
         self.state_dict()['fc1.weight'].copy_(torch.round(torch.clamp(self.fc1.weight/fc1_scale_wt, min=-127, max=127)))
+        self.state_dict()['fc1.bias'].copy_(torch.round(torch.clamp(self.fc1.bias / (1*fc1_scale_wt), min=-127, max=127)))
+
+        fc2_scale_wt = self.fc2.weight.abs().max() / 127
+        self.state_dict()['fc2.weight'].copy_(torch.round(torch.clamp(self.fc2.weight/fc2_scale_wt, min=-127, max=127)))
+        self.state_dict()['fc2.bias'].copy_(torch.round(torch.clamp(self.fc2.bias / (self.in_fc2_scale*fc2_scale_wt), min=-127, max=127)))
+
+        fc3_scale_wt = self.fc3.weight.abs().max() / 127
+        self.state_dict()['fc3.weight'].copy_(torch.round(torch.clamp(self.fc3.weight/fc3_scale_wt, min=-127, max=127)))
+        self.state_dict()['fc3.bias'].copy_(torch.round(torch.clamp(self.fc3.bias / (self.in_fc3_scale*fc3_scale_wt), min=-127, max=127)))
 
         # self.load_state_dict({'fc1.weight': torch.round(torch.clamp(self.fc1.weight/fc1_scale_wt, min=-127, max=127))})
         # self.fc1.weight = 
         # self.fc1.bias = torch.round(torch.clamp(self.fc1.bias / (self.scale_x*fc1_scale_wt), min=-127, max=127))
 
+    def to_int32(self, x, scale, offset):
+        
+
+        return x
 
     def forward(self, x):
         x = x.view(-1, 784)
 
         # x = torch.round(torch.clamp(x, self.x_min, self.x_max)/self.scale_x)
-        # x = torch.round(torch.clamp(x, -self.x_abs_max, self.x_abs_max)/self.scale_x)
+        x = torch.round(torch.clamp(x, -self.x_abs_max, self.x_abs_max)/self.scale_x)
 
         # x = torch.round(self.fc1(x))
 
         x = self.fc1(x)
-
-        # x * self.out_fc1_scale
+        x = x / self.out_fc1_scale
 
         x = torch.relu(x)
-        x = torch.relu(self.fc2(x))
+
+        x = self.fc2(x)
+        x = x / self.out_fc2_scale
+
+        x = torch.relu(x)
+
         x = self.fc3(x)
+        x = x / self.out_fc3_scale
+
         return x
 
 
