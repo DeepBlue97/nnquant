@@ -163,3 +163,4 @@ cython_debug/
 data/
 quant/mnist_graph.pt
 ckpt/mnist.pth
+quantize_result/
